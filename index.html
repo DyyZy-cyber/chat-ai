@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>AI Chat — asisten modern</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0f0f12;   /* base gelap lembut */
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            color: #e8e8ed;
+        }
+
+        /* layout utama: sidebar kiri + area chat */
+        .app {
+            display: flex;
+            height: 100%;
+            width: 100%;
+        }
+
+        /* ========= SIDEBAR KIRI ========= */
+        .sidebar {
+            width: 260px;
+            background-color: #0a0a0c;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #202024;
+            flex-shrink: 0;
+            overflow-y: auto;
+            transition: none;
+        }
+
+        .new-chat-btn {
+            margin: 18px 16px 12px 16px;
+            background-color: #1e1e24;
+            border: 1px solid #2c2c32;
+            color: #f0f0f4;
+            padding: 10px 12px;
+            border-radius: 32px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.1s ease;
+            font-family: inherit;
+        }
+
+        .new-chat-btn:hover {
+            background-color: #2a2a30;
+            border-color: #3a3a42;
+        }
+
+        .history-header {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 20px 16px 8px 16px;
+            color: #8e8e98;
+            font-weight: 500;
+        }
+
+        .history-list {
+            flex: 1;
+            padding: 0 12px 20px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .history-item {
+            padding: 10px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            color: #d1d1d9;
+            cursor: default;
+            background-color: transparent;
+            transition: background 0.1s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .history-item:hover {
+            background-color: #1c1c22;
+        }
+
+        /* ========= MAIN AREA ========= */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #111114;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* header tipis */
+        .chat-header {
+            padding: 12px 24px;
+            border-bottom: 1px solid #202024;
+            background-color: #111114;
+        }
+
+        .chat-header h2 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            letter-spacing: -0.2px;
+            color: #f0f0f4;
+        }
+
+        /* container pesan (scrollable) */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 20px 20px 20px;
+            scroll-behavior: smooth;
+        }
+
+        .messages-inner {
+            max-width: 760px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        /* bubble umum */
+        .message {
+            display: flex;
+            width: 100%;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 20px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        /* user bubble (kanan) */
+        .user-message {
+            justify-content: flex-end;
+        }
+        .user-message .message-content {
+            background-color: #2a2a30;
+            color: #f2f2f7;
+            border-radius: 22px 16px 16px 22px;
+        }
+
+        /* ai bubble (kiri) */
+        .ai-message {
+            justify-content: flex-start;
+        }
+        .ai-message .message-content {
+            background-color: #1c1c20;
+            color: #ececec;
+            border-radius: 16px 22px 22px 16px;
+        }
+
+        /* loading state sederhana */
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .loading-dots span {
+            font-size: 1rem;
+            letter-spacing: 1px;
+        }
+
+        /* input area fixed di bawah (dalam main) */
+        .input-area {
+            background-color: #111114;
+            border-top: 1px solid #202024;
+            padding: 18px 20px 24px 20px;
+        }
+
+        .input-wrapper {
+            max-width: 760px;
+            margin: 0 auto;
+            display: flex;
+            gap: 12px;
+            background-color: #1e1e24;
+            border: 1px solid #2c2c32;
+            border-radius: 32px;
+            padding: 6px 8px 6px 18px;
+            align-items: flex-end;
+            transition: border 0.1s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #4a4a58;
+        }
+
+        textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #efeff4;
+            font-family: inherit;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            padding: 10px 0;
+            resize: none;
+            outline: none;
+            max-height: 140px;
+        }
+
+        textarea::placeholder {
+            color: #6c6c78;
+        }
+
+        .send-button {
+            background-color: #2c2c34;
+            border: none;
+            border-radius: 40px;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.1s;
+            flex-shrink: 0;
+            margin-bottom: 4px;
+        }
+
+        .send-button:hover {
+            background-color: #3d3d48;
+        }
+
+        .send-button svg {
+            width: 18px;
+            height: 18px;
+            stroke: #dbdbeb;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* scrollbar minimal */
+        .messages-container::-webkit-scrollbar,
+        .sidebar::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .messages-container::-webkit-scrollbar-track,
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb,
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #33333c;
+            border-radius: 10px;
+        }
+
+        /* responsif sederhana */
+        @media (max-width: 640px) {
+            .sidebar {
+                width: 210px;
+            }
+            .message-content {
+                max-width: 90%;
+                font-size: 0.9rem;
+            }
+            .input-wrapper {
+                padding: 6px 8px 6px 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <!-- SIDEBAR KIRI -->
+    <aside class="sidebar">
+        <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+        <div class="history-header">Recent chats</div>
+        <div class="history-list">
+            <div class="history-item">✨ Pengenalan AI</div>
+            <div class="history-item">📄 Cara kerja ChatGPT</div>
+            <div class="history-item">💡 Ide coding sederhana</div>
+            <div class="history-item">🌙 Tips dark mode</div>
+            <div class="history-item">⚡ Optimasi performa</div>
+        </div>
+    </aside>
+
+    <!-- MAIN CHAT AREA -->
+    <main class="main">
+        <div class="chat-header">
+            <h2>AI Chat · asisten cerdas</h2>
+        </div>
+
+        <div class="messages-container" id="messagesContainer">
+            <div class="messages-inner" id="messagesInner">
+                <!-- pesan akan dinamis via JS -->
+                <!-- pesan sambutan awal akan ditambahkan oleh JS -->
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="userInput" placeholder="Ketik pesan... (Shift+Enter untuk baris baru)" rows="1"></textarea>
+                <button class="send-button" id="sendBtn" aria-label="Kirim pesan">
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // ------------------------ MOCK /api/chat endpoint (simulasi backend responsif) ------------------------
+    // Intercept fetch ke '/api/chat' untuk demo tanpa server nyata.
+    // Tetap menggunakan fetch, namun memberikan balasan AI cerdas dan realistis.
+    (function mockFetchAPI() {
+        const originalFetch = window.fetch;
+        window.fetch = function(input, init) {
+            if (typeof input === 'string' && input === '/api/chat' && init && init.method === 'POST') {
+                // parsing body
+                try {
+                    const bodyObj = JSON.parse(init.body);
+                    const userMessage = bodyObj.message || "";
+                    // simulasi delay jaringan natural (400-800ms)
+                    const delay = 500 + Math.random() * 300;
+                    // respon AI yang bervariasi, natural, tidak berlebihan
+                    let replyText = generateAIResponse(userMessage);
+                    return new Promise((resolve) => {
+                        setTimeout(() => {
+                            const mockResponse = new Response(
+                                JSON.stringify({ reply: replyText }),
+                                {
+                                    status: 200,
+                                    headers: { 'Content-Type': 'application/json' }
+                                }
+                            );
+                            resolve(mockResponse);
+                        }, delay);
+                    });
+                } catch (e) {
+                    return Promise.reject(new Error("Invalid request body"));
+                }
+            }
+            // fallback untuk request asli lainnya
+            return originalFetch(input, init);
+        };
+
+        // fungsi pembuat balasan AI yang sederhana tapi informatif & tidak membosankan
+        function generateAIResponse(msg) {
+            if (!msg || msg.trim() === "") {
+                return "Halo! Saya asisten AI. Silakan tanyakan apa pun, saya siap membantu.";
+            }
+            const lowerMsg = msg.toLowerCase();
+            if (lowerMsg.includes("hai") || lowerMsg.includes("halo") || lowerMsg.includes("hello")) {
+                return "Halo juga! Senang berbicara dengan Anda. Ada yang bisa saya bantu hari ini?";
+            }
+            if (lowerMsg.includes("siapa kamu") || lowerMsg.includes("kamu siapa")) {
+                return "Saya AI berbasis teks, dibuat untuk membantu percakapan dan menjawab pertanyaan. Tampilan ini terinspirasi dari ChatGPT, fokus pada kecepatan dan kesederhanaan.";
+            }
+            if (lowerMsg.includes("terima kasih") || lowerMsg.includes("makasih")) {
+                return "Sama-sama! Senang bisa membantu. Jika ada hal lain, tanyakan saja.";
+            }
+            if (lowerMsg.includes("cuaca")) {
+                return "Saat ini saya tidak bisa mengakses data cuaca real-time. Coba cek aplikasi cuaca lokal ya! Tapi saya bisa membantu topik lain.";
+            }
+            if (lowerMsg.length > 50) {
+                return "Wah, pesan Anda cukup panjang. Saya tangkap intinya, dan siap membantu lebih lanjut. Bisa Anda jelaskan lebih spesifik?";
+            }
+            // respons default yang natural
+            const templates = [
+                `Terima kasih atas pesannya: "${msg}". Saya akan memproses dengan saksama. Ada yang spesifik ingin Anda tanyakan?`,
+                `Menarik! "${msg}" — Saya siap membantu lebih dalam. Silakan lanjutkan percakapannya.`,
+                `Baik, saya terima pesan Anda. Inti dari "${msg}" bisa kita bahas lebih detail. Apa yang ingin Anda ketahui?`,
+                `Tentu! Topik "${msg}" cukup relevan. Saya asisten AI siap memberi jawaban terbaik.`,
+                `Saya mengerti. Anda mengatakan: "${msg}". Apakah ada hal lain yang perlu ditambahkan?`
+            ];
+            return templates[Math.floor(Math.random() * templates.length)];
+        }
+    })();
+
+    // ------------------------ DOM Elements & State ------------------------
+    const messagesInner = document.getElementById('messagesInner');
+    const userInputEl = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const newChatBtn = document.getElementById('newChatBtn');
+    const messagesContainer = document.getElementById('messagesContainer');
+
+    let isWaitingResponse = false;      // mencegah spam kirim saat loading
+
+    // helper: scroll ke bawah secara halus
+    function scrollToBottom() {
+        if (messagesContainer) {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }
+
+    // Helper: menambahkan pesan ke DOM (user atau AI)
+    function addMessageToUI(text, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message');
+        if (sender === 'user') {
+            messageDiv.classList.add('user-message');
+        } else {
+            messageDiv.classList.add('ai-message');
+        }
+
+        const contentDiv = document.createElement('div');
+        contentDiv.classList.add('message-content');
+        // dukungan line break & spasi
+        contentDiv.textContent = text;
+        messageDiv.appendChild(contentDiv);
+        messagesInner.appendChild(messageDiv);
+        scrollToBottom();
+        return messageDiv;
+    }
+
+    // loading sementara (tiga titik sederhana, tanpa animasi berlebihan)
+    let loadingElement = null;
+    function showLoading() {
+        removeLoadingIfExists();
+        const loadingDiv = document.createElement('div');
+        loadingDiv.classList.add('message', 'ai-message');
+        const contentDiv = document.createElement('div');
+        contentDiv.classList.add('message-content');
+        contentDiv.innerHTML = '<span class="loading-dots"><span>●</span><span>●</span><span>●</span>  thinking</span>';
+        loadingDiv.appendChild(contentDiv);
+        messagesInner.appendChild(loadingDiv);
+        loadingElement = loadingDiv;
+        scrollToBottom();
+    }
+
+    function removeLoadingIfExists() {
+        if (loadingElement && loadingElement.parentNode) {
+            loadingElement.remove();
+            loadingElement = null;
+        }
+    }
+
+    // menampilkan error di chat sebagai pesan AI
+    function showErrorMessage() {
+        removeLoadingIfExists();
+        const errorDiv = document.createElement('div');
+        errorDiv.classList.add('message', 'ai-message');
+        const contentErr = document.createElement('div');
+        contentErr.classList.add('message-content');
+        contentErr.textContent = "⚠️ Error, coba lagi. Pastikan koneksi stabil.";
+        errorDiv.appendChild(contentErr);
+        messagesInner.appendChild(errorDiv);
+        scrollToBottom();
+    }
+
+    // fungsi utama mengirim pesan ke AI (menggunakan fetch ke /api/chat)
+    async function sendMessageToAI(userMessage) {
+        if (!userMessage.trim()) return;
+
+        // 1. Tampilkan pesan user
+        addMessageToUI(userMessage, 'user');
+        userInputEl.value = '';
+        // reset tinggi textarea
+        userInputEl.style.height = 'auto';
+        
+        // 2. Tampilkan loading state
+        showLoading();
+        
+        try {
+            // 3. Kirim fetch ke endpoint /api/chat (sudah di-mock)
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userMessage })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`);
+            }
+
+            const data = await response.json();
+            const aiReply = data.reply || "Maaf, tidak ada balasan dari server.";
+
+            // 4. Hapus loading & tampilkan balasan AI
+            removeLoadingIfExists();
+            addMessageToUI(aiReply, 'ai');
+        } catch (error) {
+            console.warn("Fetch error:", error);
+            removeLoadingIfExists();
+            showErrorMessage();
+        } finally {
+            isWaitingResponse = false;
+            // fokus ulang ke input setelah selesai
+            userInputEl.focus();
+        }
+    }
+
+    // handler pengiriman pesan (cegah dobel)
+    function handleSendMessage() {
+        if (isWaitingResponse) return;
+        const rawMessage = userInputEl.value;
+        if (!rawMessage.trim()) return;
+        
+        isWaitingResponse = true;
+        sendMessageToAI(rawMessage.trim());
+    }
+
+    // reset chat (new chat)
+    function resetChat() {
+        // jika sedang loading, hapus loading dan reset flag
+        if (isWaitingResponse) {
+            removeLoadingIfExists();
+            isWaitingResponse = false;
+        }
+        // kosongkan semua pesan
+        messagesInner.innerHTML = '';
+        // tambahkan pesan sambutan dari AI (sederhana, seperti ChatGPT)
+        const welcomeMsg = "Halo! Saya asisten AI. Ada yang bisa saya bantu? Tanyakan apa saja, dari pertanyaan ringan hingga teknis.";
+        const welcomeDiv = document.createElement('div');
+        welcomeDiv.classList.add('message', 'ai-message');
+        const contentDiv = document.createElement('div');
+        contentDiv.classList.add('message-content');
+        contentDiv.textContent = welcomeMsg;
+        welcomeDiv.appendChild(contentDiv);
+        messagesInner.appendChild(welcomeDiv);
+        scrollToBottom();
+        // kosongkan input
+        userInputEl.value = '';
+        userInputEl.style.height = 'auto';
+        userInputEl.focus();
+    }
+
+    // textarea auto-resize sederhana (ringan, tanpa library)
+    function autoResizeTextarea() {
+        userInputEl.style.height = 'auto';
+        let newHeight = Math.min(userInputEl.scrollHeight, 140);
+        userInputEl.style.height = newHeight + 'px';
+    }
+
+    // event listener untuk Enter + Shift+Enter
+    function onTextareaKeydown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!isWaitingResponse) {
+                handleSendMessage();
+            }
+        }
+        // shift+Enter membiarkan newline normal (tidak ada aksi kirim)
+    }
+
+    // ------------------------ Inisialisasi awal & event binding ------------------------
+    function init() {
+        // set welcome message saat halaman dimuat
+        resetChat();  // ini menambahkan sambutan AI
+        // pasang event listeners
+        sendBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!isWaitingResponse) handleSendMessage();
+        });
+        userInputEl.addEventListener('keydown', onTextareaKeydown);
+        userInputEl.addEventListener('input', autoResizeTextarea);
+        newChatBtn.addEventListener('click', () => {
+            if (isWaitingResponse) {
+                // jika ada loading, batalkan (hapus loading dan reset flag)
+                removeLoadingIfExists();
+                isWaitingResponse = false;
+            }
+            resetChat();
+        });
+        // fokus awal
+        userInputEl.focus();
+        // mencegah memory leak: tidak ada event listener berulang, semua terdaftar sekali.
+    }
+
+    // jalankan setelah DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+</script>
+</body>
+</html>
